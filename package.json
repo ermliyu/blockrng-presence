@@ -1,0 +1,12 @@
+{
+  "name": "blockrng-presence",
+  "version": "1.0.0",
+  "description": "Keeps the Block RNG Discord bot's green online dot lit. Presence only — all real bot logic lives in the Cloudflare Worker.",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "engines": {
+    "node": ">=21"
+  }
+}
