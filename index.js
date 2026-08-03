@@ -47,7 +47,7 @@ function identify() {
         properties: { os: "linux", browser: "blockrng-presence", device: "blockrng-presence" },
         presence: {
           status: "online",
-          activities: [{ name: "Block RNG", type: 0 }], // "Playing Block RNG"
+          activities: [{ name: "Roll A Cube", type: 0 }], // "Playing Roll A Cube"
           since: null,
           afk: false,
         },
