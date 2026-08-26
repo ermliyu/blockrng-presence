@@ -846,7 +846,7 @@ async function person(d) {
   const name = clip(latin(d.name, "Cube"), 16);
   const roles = (d.roles || []).slice(0, 5);
   const chipColors = ["gold", "pink", "teal", "purple", "orange"];
-  const quote = d.quote ? clip(latin(d.quote, ""), 180) : "";
+  const quote = d.quote ? clip(latin(d.quote, ""), 150) : "";
 
   const tree = backdrop(
     W,
@@ -877,8 +877,8 @@ async function person(d) {
           quote
             ? h(
                 "div",
-                { marginTop: 16, padding: 14, borderRadius: 16, backgroundColor: C.creamDark, border: `3px solid ${C.ink}`, width: 540 },
-                txt(`"${quote}"`, { fontFamily: "Fredoka", fontSize: quote.length > 120 ? 16 : quote.length > 70 ? 18 : 22, color: C.ink })
+                { marginTop: 14, padding: 16, borderRadius: 16, backgroundColor: C.creamDark, border: `3px solid ${C.ink}`, width: 560 },
+                txt(`"${quote}"`, { fontFamily: "Fredoka", fontSize: quote.length > 120 ? 21 : quote.length > 70 ? 24 : 28, lineHeight: 1.2, color: C.ink })
               )
             : null
         ),
@@ -901,6 +901,59 @@ async function person(d) {
       ),
     ],
     [cubeFace(W - 150, -30, 130, colors[d.cube1] || C.gold, 14, d.mood || "smile"), cubeFace(-40, H - 120, 120, colors[d.cube2] || C.pink, -12), cubeFace(W * 0.42, H - 62, 64, C.teal, 8, "wow")]
+  );
+  return raster(tree, W, H);
+}
+
+// ── Team card (1200 × 560): everyone at a glance ────────────────────────────
+
+async function team(d) {
+  const W = 1200;
+  const H = 560;
+  const colors = { gold: C.gold, pink: C.pink, teal: C.teal, purple: C.purple, orange: C.orange };
+  const people = (d.people || []).slice(0, 4);
+  const images = await Promise.all(people.map((p) => dataUri(p.imageUrl)));
+  const colW = Math.floor((W - 80 - 68) / Math.max(1, people.length));
+
+  const cols = people.map((p, i) =>
+    h(
+      "div",
+      { width: colW, flexDirection: "column", alignItems: "center", paddingTop: 6 },
+      h(
+        "div",
+        { position: "relative", width: 190, height: 214, alignItems: "center", justifyContent: "flex-start" },
+        avatar(images[i], 170, p.name),
+        at(28, 156, sticker(latin(String(p.title || "TEAM"), "TEAM").toUpperCase(), colors[p.titleColor] || C.gold, i % 2 ? 5 : -6, { fontSize: 15 }))
+      ),
+      big(clip(latin(p.name, "Cube"), 12).toUpperCase(), 40, colors[p.nameColor] || C.gold, { marginTop: 8 }),
+      txt(`@${latin(p.handle, "cube")}`, { fontSize: 18, fontWeight: 800, color: C.inkSoft, marginTop: 2 }),
+      txt(clip(latin((p.roles || []).join("  ·  "), ""), 44), { fontFamily: "Fredoka", fontSize: 17, color: C.ink, marginTop: 10, textAlign: "center" })
+    )
+  );
+
+  const tree = backdrop(
+    W,
+    H,
+    C.purple,
+    C.purpleStripe,
+    [
+      panel(
+        40,
+        40,
+        W - 80,
+        H - 80,
+        { padding: 30, flexDirection: "column", alignItems: "center" },
+        h(
+          "div",
+          { alignItems: "flex-end", justifyContent: "center" },
+          big("THE TEAM", 64, C.gold),
+          txt(latin(d.subtitle || "", ""), { fontFamily: "Fredoka", fontSize: 24, color: C.inkSoft, marginLeft: 18, marginBottom: 10 })
+        ),
+        h("div", { height: 5, borderRadius: 5, backgroundColor: C.ink, opacity: 0.12, marginTop: 12, marginBottom: 16, width: 700 }),
+        h("div", { alignItems: "flex-start", justifyContent: "center" }, ...cols)
+      ),
+    ],
+    [cubeFace(W - 150, -30, 130, C.gold, 14), cubeFace(-40, H - 120, 120, C.pink, -12), cubeFace(W * 0.5, H - 60, 64, C.teal, 8, "wow")]
   );
   return raster(tree, W, H);
 }
@@ -1135,7 +1188,7 @@ async function raster(tree, width, height) {
   return Buffer.from(png);
 }
 
-const KINDS = { welcome, rank, levelup, leaderboard, rules, icon, banner, pet, sheet, poll, person };
+const KINDS = { welcome, rank, levelup, leaderboard, rules, icon, banner, pet, sheet, poll, person, team };
 
 async function render(kind, data) {
   const fn = KINDS[kind];
