@@ -161,8 +161,10 @@ function onDispatch(t, d) {
       channel_id: d.channel_id,
       message_id: d.id,
       user: pickUser(d.author),
-      // The member's server nickname, when the gateway includes it.
+      // The member's server nickname + roles, when the gateway includes them
+      // (roles decide who is excluded from XP).
       nick: d.member ? d.member.nick || null : null,
+      roles: d.member ? d.member.roles || [] : [],
       watch,
     });
   }
@@ -218,7 +220,7 @@ http
     res.writeHead(200, { "Content-Type": "text/plain" });
     const state = fatalReason ? `dead: ${fatalReason}` : connected ? "online" : "connecting";
     const members = privilegedAllowed ? "" : " (no member intent — enable Server Members Intent in the dev portal)";
-    res.end(`v2.7 ${state}${members} | forwarded ${forwardStats.sent}, failed ${forwardStats.failed}, throttled ${forwardStats.dropped}`);
+    res.end(`v2.8 ${state}${members} | forwarded ${forwardStats.sent}, failed ${forwardStats.failed}, throttled ${forwardStats.dropped}`);
   })
   .listen(port, () => console.log(`http on :${port}`));
 

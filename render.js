@@ -583,10 +583,26 @@ async function levelup(d) {
         big("LEVEL UP!", 74, C.pink),
         h(
           "div",
-          { alignItems: "flex-end", marginTop: 12 },
+          { alignItems: "center", marginTop: 22 },
           txt(name, { fontFamily: "Fredoka", fontSize: 40, lineHeight: 1, color: C.ink }),
-          txt("is now level", { fontSize: 24, fontWeight: 800, color: C.inkSoft, marginLeft: 12, marginBottom: 3 }),
-          big(String(d.level || 1), 60, C.gold, { marginLeft: 14 })
+          txt("is now level", { fontSize: 24, fontWeight: 800, color: C.inkSoft, marginLeft: 12, marginRight: 12 }),
+          h(
+            "div",
+            {
+              width: 64,
+              height: 64,
+              borderRadius: 18,
+              backgroundColor: C.gold,
+              border: `4px solid ${C.ink}`,
+              alignItems: "center",
+              justifyContent: "center",
+              fontFamily: "Fredoka",
+              fontSize: String(d.level || 1).length > 2 ? 26 : 34,
+              color: C.ink,
+              transform: "rotate(-6deg)",
+            },
+            String(d.level || 1)
+          )
         ),
         h("div", { height: 5, borderRadius: 5, backgroundColor: C.ink, opacity: 0.12, marginTop: 20, marginBottom: 16, width: 520 }),
         d.rewardLabel
