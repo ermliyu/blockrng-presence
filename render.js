@@ -745,6 +745,23 @@ async function rules(d) {
   return raster(tree, W, H);
 }
 
+// ── Icon (160 × 160, transparent): one cube mascot, used as a thumbnail ──────
+
+async function icon(d) {
+  const S = 160;
+  const colors = { gold: C.gold, pink: C.pink, teal: C.teal, purple: C.purple, orange: C.orange };
+  const color = colors[d.color] || C.gold;
+  const size = 112;
+  const off = (S - size) / 2;
+  const tree = h(
+    "div",
+    { width: S, height: S, position: "relative" },
+    h("div", { position: "absolute", left: off + 8, top: off + 10, width: size, height: size, borderRadius: Math.round(size * 0.2), backgroundColor: C.ink, transform: `rotate(${d.rot || -8}deg)` }),
+    cubeFace(off, off, size, color, d.rot || -8, d.mood)
+  );
+  return raster(tree, S, S);
+}
+
 // ── Raster ───────────────────────────────────────────────────────────────────
 
 async function raster(tree, width, height) {
@@ -755,7 +772,7 @@ async function raster(tree, width, height) {
   return Buffer.from(png);
 }
 
-const KINDS = { welcome, rank, levelup, leaderboard, rules };
+const KINDS = { welcome, rank, levelup, leaderboard, rules, icon };
 
 async function render(kind, data) {
   const fn = KINDS[kind];

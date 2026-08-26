@@ -42,6 +42,7 @@ const samples = {
     rewardLabel: "2x Luck potion (in game)",
   },
   rules: { count: 19 },
+  icon: { color: "pink", mood: "wow", rot: 10 },
   leaderboard: {
     total: 57,
     rows: Array.from({ length: 10 }, (_, i) => ({
