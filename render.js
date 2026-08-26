@@ -103,10 +103,10 @@ function big(s, size, fill, style) {
     color: fill || C.white,
     textShadow: outline(px, C.ink, drop),
     whiteSpace: "nowrap",
-    paddingLeft: px + 2,
-    paddingRight: px + 2,
-    paddingTop: px,
-    paddingBottom: px + drop,
+    paddingLeft: px * 2,
+    paddingRight: px * 2,
+    paddingTop: px * 2,
+    paddingBottom: px * 2 + drop,
     ...style,
   });
 }
@@ -724,7 +724,7 @@ async function rules(d) {
         ),
         h(
           "div",
-          { flexDirection: "column", width: 620, marginLeft: 24, marginRight: 8, justifyContent: "center" },
+          { flexDirection: "column", width: 600, marginLeft: 20, marginRight: 8, justifyContent: "center" },
           big("SERVER RULES", 78, C.gold),
           txt("Roll A Cube  ·  read these before you post", {
             fontFamily: "Fredoka",
@@ -737,11 +737,11 @@ async function rules(d) {
         ),
         h(
           "div",
-          { position: "relative", width: 150, height: 260, alignItems: "center", justifyContent: "center", flexShrink: 0 },
+          { position: "relative", width: 180, height: 260, alignItems: "center", justifyContent: "center", flexShrink: 0 },
           h(
             "div",
             { flexDirection: "column", alignItems: "center" },
-            big(String(count), 110, C.white),
+            big(String(count), 104, C.white),
             txt("RULES", { fontFamily: "Fredoka", fontSize: 26, letterSpacing: 4, color: C.ink, marginTop: 4 })
           )
         )
