@@ -927,7 +927,7 @@ async function team(d) {
       ),
       big(clip(latin(p.name, "Cube"), 12).toUpperCase(), 40, colors[p.nameColor] || C.gold, { marginTop: 8 }),
       txt(`@${latin(p.handle, "cube")}`, { fontSize: 18, fontWeight: 800, color: C.inkSoft, marginTop: 2 }),
-      txt(clip(latin((p.roles || []).join("  ·  "), ""), 44), { fontFamily: "Fredoka", fontSize: 17, color: C.ink, marginTop: 10, textAlign: "center" })
+      txt(latin((p.roles || []).join("  ·  "), ""), { fontFamily: "Fredoka", fontSize: (p.roles || []).join("").length > 24 ? 15 : 17, color: C.ink, marginTop: 10, textAlign: "center", width: colW - 16 })
     )
   );
 
