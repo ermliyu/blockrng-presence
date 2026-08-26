@@ -12,7 +12,7 @@ const HEAD = "https://tr.rbxcdn.com/30DAY-AvatarHeadshot-8B7E1D8B6B0B0C1B1C1B1C1
 
 const samples = {
   welcome: {
-    name: "liyu",
+    name: "ℓʏ' ✧ 𝓵𝓲𝔂𝓾",
     username: "lieeyui",
     avatarUrl: AVATAR,
     memberNumber: 1284,

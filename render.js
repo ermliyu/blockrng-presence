@@ -5,13 +5,17 @@
 // hundred. Node has no such cap. The Worker sends `{ kind, data }` to POST
 // /render (HMAC-signed with the bot token) and gets PNG bytes back.
 //
-// Layout is Satori (HTML-ish object tree → SVG) rasterised by resvg. Satori
-// rules that bite: every element with more than one child MUST be
-// display:flex (h() below defaults it), images need explicit width/height,
-// and glyphs missing from the bundled fonts are dropped — so names are
-// sanitised to Latin before they go in.
+// Look (v2, 2026-08-26 — liyu: "less made with AI"): the game's own language,
+// not the dark-gradient/glass/neon-glow template. Flat bright colours, cream
+// panels with thick ink outlines and HARD offset shadows, Fredoka with an
+// outline, tilted sticker tags, and little cube characters (the pets are
+// cubes) instead of glows. No gradients, no blur, no glass.
 //
-// Brand: Fredoka One for display text (the game's font), Nunito for body.
+// Satori rules that bite: every element with more than one child MUST be
+// display:flex (h() below defaults it), images need explicit width/height,
+// glyphs missing from the bundled fonts are dropped (names are sanitised and
+// fall back to the username), and resvg-wasm panics on big blur filters — so
+// shadows here are plain offset rectangles, never box-shadow.
 
 const fs = require("fs");
 const path = require("path");
@@ -33,7 +37,6 @@ function ensureWasm() {
   if (!wasmReady) {
     const wasmPath = require.resolve("@resvg/resvg-wasm/index_bg.wasm");
     wasmReady = initWasm(fs.readFileSync(wasmPath)).catch((err) => {
-      // "Already initialized" is fine (hot reload); anything else is real.
       if (!String(err).includes("initialized")) throw err;
     });
   }
@@ -43,22 +46,22 @@ function ensureWasm() {
 // ── Palette ──────────────────────────────────────────────────────────────────
 
 const C = {
-  bg0: "#0a0c1b",
-  bg1: "#161238",
-  bg2: "#2a1650",
-  glass: "rgba(255,255,255,0.055)",
-  glassBorder: "rgba(255,255,255,0.14)",
-  text: "#ffffff",
-  muted: "rgba(255,255,255,0.62)",
-  faint: "rgba(255,255,255,0.35)",
+  ink: "#2a1a4a",
+  cream: "#fff8e7",
+  creamDark: "#f3e8d0",
+  purple: "#7c5cff",
+  purpleStripe: "#8a6eff",
+  teal: "#3ddbc2",
+  tealStripe: "#52e2cb",
   gold: "#ffdd00",
-  pink: "#ffb6e3",
-  violet: "#a47cff",
-  teal: "#2dd4bf",
+  goldStripe: "#ffe64d",
+  pink: "#ff9ad5",
+  pinkStripe: "#ffaadc",
   orange: "#ff9f43",
+  white: "#ffffff",
+  inkSoft: "rgba(42,26,74,0.62)",
+  inkFaint: "rgba(42,26,74,0.38)",
 };
-const RING = `linear-gradient(135deg, ${C.gold} 0%, ${C.pink} 45%, ${C.violet} 75%, ${C.teal} 100%)`;
-const TITLE_GRADIENT = `linear-gradient(90deg, #ffffff 0%, ${C.pink} 55%, ${C.violet} 100%)`;
 
 // ── Element helpers ──────────────────────────────────────────────────────────
 
@@ -76,20 +79,51 @@ function h(type, style, ...children) {
 }
 const txt = (s, style) => h("div", { display: "block", ...style }, String(s));
 
-// Keep what the bundled fonts can draw (Latin + Latin-1/Extended-A) and drop
-// the rest — emoji, CJK, fancy Unicode "fonts" people put in display names.
-function latin(s, fallback) {
-  const cleaned = String(s || "")
-    .replace(/[^\x20-\x7e -ɏ]/g, "")
+// Text outline via stacked hard text-shadows (Satori has no text-stroke).
+function outline(px, color, drop) {
+  const c = color || C.ink;
+  const parts = [];
+  for (const [x, y] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]]) {
+    parts.push(`${x * px}px ${y * px}px 0 ${c}`);
+  }
+  if (drop) parts.push(`0px ${px + drop}px 0 ${c}`);
+  return parts.join(", ");
+}
+
+// Chunky display text: Fredoka + ink outline + a little drop.
+function big(s, size, fill, style) {
+  const px = Math.max(2, Math.round(size * 0.055));
+  return txt(s, {
+    fontFamily: "Fredoka",
+    fontSize: size,
+    lineHeight: 1,
+    color: fill || C.white,
+    textShadow: outline(px, C.ink, Math.round(px * 1.2)),
+    ...style,
+  });
+}
+
+// Keep what the bundled fonts can draw (Latin + Latin-1/Extended-A). If the
+// name is mostly stylised Unicode (fancy "fonts", symbols) the cleaned result
+// is a stump like "ly'" — then use the fallback (username) instead.
+function cleanLatin(s) {
+  return String(s || "")
+    .replace(/[^\x20-\x7e -ɏ]/g, "")
     .replace(/\s+/g, " ")
     .trim();
-  return cleaned || fallback || "Cube";
+}
+function latin(s, fallback) {
+  const raw = String(s || "").replace(/\s+/g, "");
+  const cleaned = cleanLatin(s);
+  const keep = raw.length ? cleaned.replace(/\s+/g, "").length / raw.length : 0;
+  if (cleaned && keep >= 0.6) return cleaned;
+  const fb = cleanLatin(fallback);
+  return fb || cleaned || "Cube";
 }
 const clip = (s, n) => (s.length > n ? s.slice(0, n - 1) + "…" : s);
 const fmt = (n) => Number(n || 0).toLocaleString("en-US");
 
 // Fetch an image to a data URI so Satori never does network work mid-layout.
-// Any failure → null and the caller draws a placeholder instead.
 async function dataUri(url) {
   if (!url) return null;
   try {
@@ -106,8 +140,8 @@ async function dataUri(url) {
 
 // ── Shared pieces ────────────────────────────────────────────────────────────
 
-function backdrop(width, height, children, accent) {
-  const glow = accent || C.violet;
+// Flat colour + diagonal stripes, with cube characters in the corners.
+function backdrop(width, height, base, stripe, children, cubes) {
   return h(
     "div",
     {
@@ -115,108 +149,124 @@ function backdrop(width, height, children, accent) {
       height,
       position: "relative",
       overflow: "hidden",
-      backgroundColor: C.bg0,
-      backgroundImage: `linear-gradient(135deg, ${C.bg0} 0%, ${C.bg1} 55%, ${C.bg2} 100%)`,
+      backgroundColor: base,
+      backgroundImage: `repeating-linear-gradient(-45deg, ${base} 0px, ${base} 26px, ${stripe} 26px, ${stripe} 52px)`,
       fontFamily: "Nunito",
-      color: C.text,
+      color: C.ink,
     },
-    // Two soft light sources so the flat gradient reads as depth.
-    h("div", {
-      position: "absolute",
-      left: -140,
-      top: -160,
-      width: 520,
-      height: 520,
-      borderRadius: 260,
-      backgroundImage: `radial-gradient(circle, ${glow} 0%, rgba(0,0,0,0) 62%)`,
-      opacity: 0.35,
-    }),
-    h("div", {
-      position: "absolute",
-      right: -120,
-      bottom: -200,
-      width: 560,
-      height: 560,
-      borderRadius: 280,
-      backgroundImage: `radial-gradient(circle, ${C.teal} 0%, rgba(0,0,0,0) 60%)`,
-      opacity: 0.18,
-    }),
-    // Floating cubes — the game's motif, kept faint so text stays readable.
-    cube(width - 210, -40, 150, 14, C.pink, 0.16),
-    cube(width - 90, 120, 70, -20, C.gold, 0.22),
-    cube(40, height - 90, 110, 24, C.teal, 0.14),
-    cube(width * 0.55, height - 60, 56, -12, C.violet, 0.2),
+    ...(cubes || []),
     ...children
   );
 }
 
-function cube(x, y, size, rot, color, opacity) {
-  return h("div", {
-    position: "absolute",
-    left: x,
-    top: y,
-    width: size,
-    height: size,
-    borderRadius: Math.round(size * 0.22),
-    border: `3px solid ${color}`,
-    transform: `rotate(${rot}deg)`,
-    opacity,
-  });
-}
-
-// Glass panel. No box-shadow: resvg-wasm panics ("unreachable") on the huge
-// Gaussian blur Satori emits for a panel-sized shadow, so the drop shadow is a
-// plain offset dark rect behind the panel instead.
-function glass(style, ...children) {
-  const { position, left, top, width, height, ...rest } = style;
+// A cube pet: rounded square, ink outline, two eyes and a smile. Tilted.
+function cubeFace(x, y, size, color, rot, mood) {
+  const eye = Math.max(6, Math.round(size * 0.11));
+  const gap = Math.round(size * 0.2);
+  const mouthW = Math.round(size * 0.34);
+  const mouthH = Math.round(size * 0.16);
+  const border = Math.max(4, Math.round(size * 0.05));
   return h(
     "div",
-    { position, left, top, width, height },
-    h("div", {
+    {
       position: "absolute",
-      left: 0,
-      top: 18,
-      width,
-      height,
-      borderRadius: 30,
-      backgroundColor: "rgba(0,0,0,0.32)",
-    }),
+      left: x,
+      top: y,
+      width: size,
+      height: size,
+      borderRadius: Math.round(size * 0.2),
+      backgroundColor: color,
+      border: `${border}px solid ${C.ink}`,
+      transform: `rotate(${rot}deg)`,
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    h(
+      "div",
+      { alignItems: "center", marginBottom: Math.round(size * 0.06) },
+      h("div", { width: eye, height: eye, borderRadius: eye, backgroundColor: C.ink, marginRight: gap }),
+      h("div", { width: eye, height: eye, borderRadius: eye, backgroundColor: C.ink })
+    ),
+    mood === "wow"
+      ? h("div", { width: mouthH, height: mouthH, borderRadius: mouthH, border: `${border}px solid ${C.ink}` })
+      : h("div", {
+          width: mouthW,
+          height: mouthH,
+          borderBottom: `${border}px solid ${C.ink}`,
+          borderLeft: `${border}px solid ${C.ink}`,
+          borderRight: `${border}px solid ${C.ink}`,
+          borderRadius: `0 0 ${mouthW}px ${mouthW}px`,
+        })
+  );
+}
+
+// Cream panel with ink outline and a hard offset shadow.
+function panel(x, y, w, hgt, style, ...children) {
+  const r = (style && style.borderRadius) || 28;
+  return h(
+    "div",
+    { position: "absolute", left: x, top: y, width: w, height: hgt },
+    h("div", { position: "absolute", left: 8, top: 10, width: w, height: hgt, borderRadius: r, backgroundColor: C.ink }),
     h(
       "div",
       {
         position: "absolute",
         left: 0,
         top: 0,
-        width,
-        height,
-        backgroundColor: C.glass,
-        border: `1px solid ${C.glassBorder}`,
-        borderRadius: 30,
-        ...rest,
+        width: w,
+        height: hgt,
+        borderRadius: r,
+        backgroundColor: C.cream,
+        border: `5px solid ${C.ink}`,
+        ...style,
       },
       ...children
     )
   );
 }
 
-// Circular avatar with the brand gradient ring. `uri` null → initials disc.
-function avatar(uri, size, name, ringWidth) {
-  const ring = ringWidth == null ? Math.max(4, Math.round(size * 0.035)) : ringWidth;
-  const inner = size - ring * 2;
-  const glowPad = Math.round(size * 0.18);
+// Tilted sticker tag. Positioned by the caller (wrap in a positioned div).
+function sticker(label, bgColor, rot, style, textColor) {
+  const fontSize = (style && style.fontSize) || 20;
+  const padX = Math.round(fontSize * 0.8);
+  const padY = Math.round(fontSize * 0.35);
+  const outer = { ...(style || {}) };
+  delete outer.fontSize;
+  return h(
+    "div",
+    { position: "relative", transform: `rotate(${rot || 0}deg)`, ...outer },
+    h("div", { position: "absolute", left: 4, top: 5, right: -4, bottom: -5, borderRadius: 999, backgroundColor: C.ink }),
+    h(
+      "div",
+      {
+        position: "relative",
+        paddingLeft: padX,
+        paddingRight: padX,
+        paddingTop: padY,
+        paddingBottom: padY,
+        borderRadius: 999,
+        backgroundColor: bgColor,
+        border: `4px solid ${C.ink}`,
+        fontFamily: "Fredoka",
+        fontSize,
+        letterSpacing: 1,
+        color: textColor || C.ink,
+      },
+      label
+    )
+  );
+}
+
+// Round avatar: white ring + ink outline + hard shadow. `uri` null → initial.
+function avatar(uri, size, name) {
+  const ring = Math.max(5, Math.round(size * 0.04));
+  const white = Math.max(6, Math.round(size * 0.045));
+  const inner = size - (ring + white) * 2;
   return h(
     "div",
     { position: "relative", width: size, height: size },
-    // Glow = radial gradient disc (a blur filter would crash resvg, see glass()).
-    h("div", {
-      position: "absolute",
-      left: -glowPad,
-      top: -glowPad,
-      width: size + glowPad * 2,
-      height: size + glowPad * 2,
-      borderRadius: (size + glowPad * 2) / 2,
-      backgroundImage: "radial-gradient(circle, rgba(164,124,255,0.6) 0%, rgba(255,182,227,0.25) 45%, rgba(0,0,0,0) 70%)",
-    }),
+    h("div", { position: "absolute", left: 7, top: 9, width: size, height: size, borderRadius: size, backgroundColor: C.ink }),
     h(
       "div",
       {
@@ -225,82 +275,89 @@ function avatar(uri, size, name, ringWidth) {
         top: 0,
         width: size,
         height: size,
-        borderRadius: size / 2,
-        backgroundImage: RING,
-        padding: ring,
+        borderRadius: size,
+        backgroundColor: C.white,
+        border: `${ring}px solid ${C.ink}`,
+        alignItems: "center",
+        justifyContent: "center",
       },
       uri
-      ? h("img", { src: uri, width: inner, height: inner, borderRadius: inner / 2 })
-      : h(
-          "div",
-          {
-            width: inner,
-            height: inner,
-            borderRadius: inner / 2,
-            backgroundColor: "#1f1b3f",
-            alignItems: "center",
-            justifyContent: "center",
-            fontFamily: "Fredoka",
-            fontSize: Math.round(size * 0.42),
-            color: C.pink,
-          },
-          latin(name, "C").slice(0, 1).toUpperCase()
-        )
+        ? h("img", { src: uri, width: inner, height: inner, borderRadius: inner })
+        : h(
+            "div",
+            {
+              width: inner,
+              height: inner,
+              borderRadius: inner,
+              backgroundColor: C.pink,
+              alignItems: "center",
+              justifyContent: "center",
+              fontFamily: "Fredoka",
+              fontSize: Math.round(size * 0.42),
+              color: C.ink,
+            },
+            latin(name, "C").slice(0, 1).toUpperCase()
+          )
     )
   );
 }
 
-function pill(label, color, style) {
-  return h(
-    "div",
-    {
-      paddingLeft: 16,
-      paddingRight: 16,
-      paddingTop: 7,
-      paddingBottom: 7,
-      borderRadius: 999,
-      backgroundColor: "rgba(255,255,255,0.08)",
-      border: `1.5px solid ${color}`,
-      color,
-      fontSize: 18,
-      fontWeight: 800,
-      letterSpacing: 1.5,
-      ...style,
-    },
-    label
-  );
-}
-
-function progressBar(width, ratio, height) {
+// Progress bar: ink-outlined track, striped fill.
+function bar(width, ratio, height, color, stripe) {
   const r = Math.max(0, Math.min(1, ratio || 0));
-  const hgt = height || 26;
+  const hgt = height || 30;
+  const fill = Math.round((width - 8) * r);
   return h(
     "div",
     {
       width,
       height: hgt,
-      borderRadius: hgt / 2,
-      backgroundColor: "rgba(255,255,255,0.10)",
-      border: "1px solid rgba(255,255,255,0.12)",
+      borderRadius: hgt,
+      backgroundColor: C.creamDark,
+      border: `4px solid ${C.ink}`,
       overflow: "hidden",
     },
-    h("div", {
-      width: Math.max(r > 0 ? hgt : 0, Math.round(width * r)),
-      height: hgt,
-      borderRadius: hgt / 2,
-      backgroundImage: RING,
-    })
+    fill > 0
+      ? h("div", {
+          width: Math.max(hgt - 8, fill),
+          height: hgt - 8,
+          borderRadius: hgt,
+          backgroundColor: color,
+          backgroundImage: `repeating-linear-gradient(-45deg, ${color} 0px, ${color} 12px, ${stripe} 12px, ${stripe} 24px)`,
+          border: `2px solid ${C.ink}`,
+        })
+      : null
   );
 }
 
-function watermark(x, y) {
+// Numbered cube + label (the welcome checklist).
+function step(n, label, color) {
   return h(
     "div",
-    { position: "absolute", left: x, top: y, alignItems: "center" },
-    h("div", { width: 10, height: 10, borderRadius: 3, backgroundColor: C.gold, marginRight: 8 }),
-    txt("ROLL A CUBE", { fontFamily: "Fredoka", fontSize: 16, letterSpacing: 3, color: C.faint })
+    { alignItems: "center", marginRight: 18 },
+    h(
+      "div",
+      {
+        width: 36,
+        height: 36,
+        borderRadius: 10,
+        backgroundColor: color,
+        border: `4px solid ${C.ink}`,
+        alignItems: "center",
+        justifyContent: "center",
+        fontFamily: "Fredoka",
+        fontSize: 22,
+        color: C.ink,
+        marginRight: 10,
+        transform: "rotate(-6deg)",
+      },
+      String(n)
+    ),
+    txt(label, { fontFamily: "Fredoka", fontSize: 22, color: C.ink })
   );
 }
+
+const at = (x, y, node, extra) => h("div", { position: "absolute", left: x, top: y, ...(extra || {}) }, node);
 
 // ── Welcome card (1200 × 500) ────────────────────────────────────────────────
 
@@ -309,86 +366,85 @@ async function welcome(d) {
   const H = 500;
   const [av, icon] = await Promise.all([dataUri(d.avatarUrl), dataUri(d.gameIconUrl)]);
   const name = clip(latin(d.name, d.username), 16);
-  const nameSize = name.length > 12 ? 56 : name.length > 8 ? 66 : 78;
+  const nameSize = name.length > 12 ? 44 : name.length > 8 ? 52 : 60;
   const joined = d.joinedAt
     ? new Date(d.joinedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
     : "";
 
-  const step = (n, label, color) =>
-    h(
-      "div",
-      { alignItems: "center", marginRight: 22 },
-      h(
-        "div",
-        {
-          width: 34,
-          height: 34,
-          borderRadius: 17,
-          backgroundColor: color,
-          color: "#12102a",
-          fontFamily: "Fredoka",
-          fontSize: 19,
-          alignItems: "center",
-          justifyContent: "center",
-          marginRight: 10,
-        },
-        String(n)
-      ),
-      txt(label, { fontSize: 21, fontWeight: 700, color: "rgba(255,255,255,0.88)" })
-    );
-
-  const tree = backdrop(W, H, [
-    glass(
-      { position: "absolute", left: 36, top: 36, width: W - 72, height: H - 72, padding: 40, alignItems: "center" },
-      // Left: avatar + member number
-      h(
-        "div",
-        { flexDirection: "column", alignItems: "center", width: 250 },
-        avatar(av, 212, name),
-        pill(`MEMBER #${fmt(d.memberNumber)}`, C.gold, { marginTop: 22 })
-      ),
-      // Middle: copy
-      h(
-        "div",
-        { flexDirection: "column", flexGrow: 1, marginLeft: 44, marginRight: 20, justifyContent: "center" },
-        txt("WELCOME TO THE SERVER", { fontSize: 20, fontWeight: 800, letterSpacing: 5, color: C.teal }),
-        txt(name, {
-          fontFamily: "Fredoka",
-          fontSize: nameSize,
-          lineHeight: 1.05,
-          marginTop: 6,
-          backgroundImage: TITLE_GRADIENT,
-          backgroundClip: "text",
-          color: "transparent",
-        }),
-        txt(`@${latin(d.username, "cube")}${joined ? `  ·  joined ${joined}` : ""}`, {
-          fontSize: 24,
-          color: C.muted,
-          marginTop: 4,
-        }),
-        h("div", { height: 1, backgroundColor: C.glassBorder, marginTop: 26, marginBottom: 22, width: 600 }),
+  const tree = backdrop(
+    W,
+    H,
+    C.purple,
+    C.purpleStripe,
+    [
+      panel(
+        40,
+        40,
+        W - 80,
+        H - 80,
+        { padding: 30, alignItems: "center" },
+        // Left: avatar + member sticker. Panel inner width ~1050: left 240 +
+        // gap 30 + middle 560 + gap 16 + right 190.
         h(
           "div",
-          { alignItems: "center" },
-          step(1, "Link your Roblox", C.gold),
-          step(2, "Grab your code", C.pink),
-          step(3, "Say hi", C.teal)
+          { position: "relative", width: 240, height: 300, alignItems: "center", justifyContent: "center" },
+          avatar(av, 216, name),
+          at(22, 236, sticker(`MEMBER #${fmt(d.memberNumber)}`, C.gold, -6, { fontSize: 20 }))
+        ),
+        // Middle: copy
+        h(
+          "div",
+          { flexDirection: "column", width: 560, marginLeft: 30, marginRight: 16, justifyContent: "center" },
+          big("WELCOME!", 80, C.gold),
+          txt(name, { fontFamily: "Fredoka", fontSize: nameSize, color: C.ink, marginTop: 8, lineHeight: 1.05 }),
+          txt(`@${latin(d.username, "cube")}${joined ? `  ·  joined ${joined}` : ""}`, {
+            fontSize: 22,
+            fontWeight: 700,
+            color: C.inkSoft,
+            marginTop: 2,
+          }),
+          h("div", { height: 5, borderRadius: 5, backgroundColor: C.ink, opacity: 0.12, marginTop: 22, marginBottom: 20, width: 540 }),
+          h("div", { alignItems: "center" }, step(1, "Link your Roblox", C.gold), step(2, "Grab your code", C.pink), step(3, "Say hi", C.teal))
+        ),
+        // Right: the game, polaroid-style
+        h(
+          "div",
+          { position: "relative", width: 190, height: 300, alignItems: "center", justifyContent: "center", flexDirection: "column", flexShrink: 0 },
+          h(
+            "div",
+            { position: "relative", width: 150, height: 150, transform: "rotate(5deg)" },
+            h("div", { position: "absolute", left: 6, top: 8, width: 150, height: 150, borderRadius: 22, backgroundColor: C.ink }),
+            h(
+              "div",
+              {
+                position: "absolute",
+                left: 0,
+                top: 0,
+                width: 150,
+                height: 150,
+                borderRadius: 22,
+                backgroundColor: C.white,
+                border: `5px solid ${C.ink}`,
+                padding: 8,
+              },
+              icon
+                ? h("img", { src: icon, width: 124, height: 124, borderRadius: 14 })
+                : h("div", { width: 124, height: 124, borderRadius: 14, backgroundColor: C.pink })
+            )
+          ),
+          txt("ROLL A CUBE", { fontFamily: "Fredoka", fontSize: 24, color: C.ink, marginTop: 24 }),
+          txt(`${fmt(d.memberCount)} members`, { fontSize: 19, fontWeight: 800, color: C.inkSoft, marginTop: 2 }),
+          d.updateLabel ? at(24, 280, sticker(latin(d.updateLabel, ""), C.teal, 4, { fontSize: 15 })) : null
         )
       ),
-      // Right: game + live count
-      h(
-        "div",
-        { flexDirection: "column", alignItems: "center", width: 180 },
-        icon
-          ? h("img", { src: icon, width: 124, height: 124, borderRadius: 30 })
-          : h("div", { width: 124, height: 124, borderRadius: 30, backgroundColor: "#1f1b3f", border: `2px solid ${C.gold}` }),
-        txt("ROLL A CUBE", { fontFamily: "Fredoka", fontSize: 20, letterSpacing: 2, marginTop: 14, color: C.text }),
-        txt(`${fmt(d.memberCount)} members`, { fontSize: 18, color: C.muted, marginTop: 4 }),
-        d.updateLabel ? pill(latin(d.updateLabel, ""), C.violet, { marginTop: 14, fontSize: 15 }) : null
-      )
-    ),
-    watermark(60, H - 30),
-  ], C.pink);
+    ],
+    [
+      cubeFace(W - 150, -30, 130, C.gold, 14),
+      cubeFace(-40, H - 120, 120, C.pink, -12),
+      cubeFace(W * 0.42, H - 62, 64, C.teal, 8, "wow"),
+      cubeFace(W - 70, H - 90, 58, C.orange, -18),
+    ]
+  );
 
   return raster(tree, W, H);
 }
@@ -402,71 +458,73 @@ async function rank(d) {
   const name = clip(latin(d.name, d.username), 14);
   const inLevel = Math.max(0, d.xpInLevel || 0);
   const need = Math.max(1, d.xpForLevel || 1);
-  // Panel inner width is 880: avatar 176 + gap 36 + middle 488 + right 180.
   const barW = 470;
 
-  const tree = backdrop(W, H, [
-    glass(
-      { position: "absolute", left: 28, top: 28, width: W - 56, height: H - 56, padding: 32, alignItems: "center" },
-      avatar(av, 176, name),
-      h(
-        "div",
-        { flexDirection: "column", width: 488, marginLeft: 36, justifyContent: "center" },
+  const tree = backdrop(
+    W,
+    H,
+    C.teal,
+    C.tealStripe,
+    [
+      panel(
+        30,
+        30,
+        W - 60,
+        H - 60,
+        { padding: 30, alignItems: "center" },
+        avatar(av, 176, name),
         h(
           "div",
-          { alignItems: "flex-end" },
-          txt(name, { fontFamily: "Fredoka", fontSize: name.length > 10 ? 40 : 50, lineHeight: 1, color: C.text }),
-          txt(`@${latin(d.username, "cube")}`, { fontSize: 22, color: C.muted, marginLeft: 14, marginBottom: 4 })
+          { flexDirection: "column", width: 488, marginLeft: 34, justifyContent: "center" },
+          h(
+            "div",
+            { alignItems: "flex-end" },
+            txt(name, { fontFamily: "Fredoka", fontSize: name.length > 10 ? 40 : 50, lineHeight: 1, color: C.ink }),
+            txt(`@${latin(d.username, "cube")}`, { fontSize: 20, fontWeight: 800, color: C.inkSoft, marginLeft: 12, marginBottom: 4 })
+          ),
+          h(
+            "div",
+            { alignItems: "center", marginTop: 14 },
+            d.robloxName
+              ? h(
+                  "div",
+                  {
+                    alignItems: "center",
+                    borderRadius: 999,
+                    backgroundColor: C.white,
+                    border: `4px solid ${C.ink}`,
+                    paddingLeft: 6,
+                    paddingRight: 14,
+                    paddingTop: 4,
+                    paddingBottom: 4,
+                  },
+                  head
+                    ? h("img", { src: head, width: 30, height: 30, borderRadius: 30, marginRight: 8 })
+                    : h("div", { width: 30, height: 30, borderRadius: 30, backgroundColor: C.pink, marginRight: 8 }),
+                  txt(`@${latin(d.robloxName, "linked")} linked`, { fontFamily: "Fredoka", fontSize: 18, color: C.ink })
+                )
+              : sticker("NOT LINKED · grab a code in #codes", C.orange, 0, { fontSize: 15 }),
+            txt(`${fmt(d.messages)} messages`, { fontSize: 19, fontWeight: 800, color: C.inkSoft, marginLeft: 18 })
+          ),
+          h("div", { marginTop: 24 }, bar(barW, inLevel / need, 30, C.gold, C.goldStripe)),
+          h(
+            "div",
+            { justifyContent: "space-between", width: barW, marginTop: 8 },
+            txt(`${fmt(inLevel)} / ${fmt(need)} XP`, { fontFamily: "Fredoka", fontSize: 19, color: C.ink }),
+            txt(`${fmt(need - inLevel)} XP to level ${fmt((d.level || 0) + 1)}`, { fontSize: 18, fontWeight: 700, color: C.inkFaint })
+          )
         ),
         h(
           "div",
-          { alignItems: "center", marginTop: 14 },
-          d.robloxName
-            ? h(
-                "div",
-                {
-                  alignItems: "center",
-                  borderRadius: 999,
-                  backgroundColor: "rgba(45,212,191,0.12)",
-                  border: `1.5px solid ${C.teal}`,
-                  paddingLeft: 8,
-                  paddingRight: 16,
-                  paddingTop: 5,
-                  paddingBottom: 5,
-                },
-                head
-                  ? h("img", { src: head, width: 28, height: 28, borderRadius: 14, marginRight: 8 })
-                  : h("div", { width: 28, height: 28, borderRadius: 14, backgroundColor: C.teal, marginRight: 8 }),
-                txt(`@${latin(d.robloxName, "linked")} linked`, { fontSize: 17, fontWeight: 800, color: C.teal })
-              )
-            : pill("NOT LINKED · grab a code in #codes", C.orange, { fontSize: 15, letterSpacing: 0.5 }),
-          txt(`${fmt(d.messages)} messages`, { fontSize: 18, color: C.muted, marginLeft: 18 })
-        ),
-        h("div", { marginTop: 26 }, progressBar(barW, inLevel / need, 26)),
-        h(
-          "div",
-          { justifyContent: "space-between", width: barW, marginTop: 10 },
-          txt(`${fmt(inLevel)} / ${fmt(need)} XP`, { fontSize: 18, fontWeight: 700, color: C.muted }),
-          txt(`${fmt(need - inLevel)} XP to level ${fmt((d.level || 0) + 1)}`, { fontSize: 18, color: C.faint })
+          { flexDirection: "column", alignItems: "center", justifyContent: "center", width: 180, flexShrink: 0 },
+          txt("LEVEL", { fontFamily: "Fredoka", fontSize: 22, letterSpacing: 3, color: C.ink }),
+          big(String(d.level || 0), 108, C.gold, { marginTop: 2 }),
+          h("div", { marginTop: 14 }, sticker(`RANK #${fmt(d.rank)}`, C.pink, -4, { fontSize: 18 }))
         )
       ),
-      h(
-        "div",
-        { flexDirection: "column", alignItems: "flex-end", justifyContent: "center", width: 180, flexShrink: 0 },
-        txt("LEVEL", { fontSize: 18, fontWeight: 800, letterSpacing: 5, color: C.pink }),
-        txt(String(d.level || 0), {
-          fontFamily: "Fredoka",
-          fontSize: 104,
-          lineHeight: 0.95,
-          backgroundImage: TITLE_GRADIENT,
-          backgroundClip: "text",
-          color: "transparent",
-        }),
-        pill(`RANK #${fmt(d.rank)}`, C.gold, { marginTop: 10, fontSize: 16 })
-      )
-    ),
-    watermark(52, H - 26),
-  ]);
+    ],
+    [cubeFace(W - 96, -26, 86, C.gold, 16), cubeFace(-30, H - 74, 78, C.pink, -10), cubeFace(W * 0.5, H - 40, 50, C.purple, 10, "wow")]
+  );
 
   return raster(tree, W, H);
 }
@@ -477,73 +535,68 @@ async function levelup(d) {
   const W = 1000;
   const H = 380;
   const av = await dataUri(d.avatarUrl);
-  const name = clip(latin(d.name, d.username), 20);
+  const name = clip(latin(d.name, d.username), 16);
 
-  // Burst rays behind the avatar: bars centred on the avatar (Satori rotates
-  // around an element's centre — transform-origin isn't honoured), each
-  // fading to nothing through the middle so only the spokes outside the
-  // avatar show. 8 bars = 16 spokes.
-  const cx = 150;
+  // Burst behind the avatar: flat spokes (Satori rotates around the centre).
+  const cx = 160;
   const cy = H / 2;
   const rays = [];
   for (let i = 0; i < 8; i++) {
-    const long = i % 2 === 0;
-    const len = long ? 165 : 135;
-    const color = long ? C.gold : C.pink;
+    const len = i % 2 === 0 ? 168 : 140;
     rays.push(
       h("div", {
         position: "absolute",
         left: cx - len,
-        top: cy - 3,
+        top: cy - 5,
         width: len * 2,
-        height: 6,
-        borderRadius: 3,
-        backgroundImage: `linear-gradient(90deg, ${color} 0%, rgba(0,0,0,0) 32%, rgba(0,0,0,0) 68%, ${color} 100%)`,
-        opacity: 0.75,
+        height: 10,
+        borderRadius: 10,
+        backgroundColor: i % 2 === 0 ? C.white : C.ink,
+        opacity: i % 2 === 0 ? 0.9 : 0.75,
         transform: `rotate(${i * 22.5}deg)`,
       })
     );
   }
 
-  const tree = backdrop(W, H, [
-    ...rays,
-    h(
-      "div",
-      { position: "absolute", left: 60, top: (H - 180) / 2 },
-      avatar(av, 180, name, 7)
-    ),
-    glass(
-      { position: "absolute", left: 290, top: 44, width: W - 290 - 40, height: H - 88, padding: 34, flexDirection: "column", justifyContent: "center" },
-      txt("LEVEL UP!", {
-        fontFamily: "Fredoka",
-        fontSize: 72,
-        lineHeight: 1,
-        backgroundImage: `linear-gradient(90deg, ${C.gold} 0%, ${C.pink} 60%, ${C.violet} 100%)`,
-        backgroundClip: "text",
-        color: "transparent",
-      }),
-      h(
-        "div",
-        { alignItems: "flex-end", marginTop: 10 },
-        txt(name, { fontFamily: "Fredoka", fontSize: 40, lineHeight: 1, color: C.text }),
-        txt("is now level", { fontSize: 24, color: C.muted, marginLeft: 12, marginBottom: 3 }),
-        txt(String(d.level || 1), { fontFamily: "Fredoka", fontSize: 58, lineHeight: 0.9, color: C.gold, marginLeft: 12 })
+  const tree = backdrop(
+    W,
+    H,
+    C.gold,
+    C.goldStripe,
+    [
+      ...rays,
+      at(70, (H - 180) / 2, avatar(av, 180, name)),
+      panel(
+        300,
+        46,
+        W - 300 - 40,
+        H - 92,
+        { padding: 32, flexDirection: "column", justifyContent: "center" },
+        big("LEVEL UP!", 74, C.pink),
+        h(
+          "div",
+          { alignItems: "flex-end", marginTop: 12 },
+          txt(name, { fontFamily: "Fredoka", fontSize: 40, lineHeight: 1, color: C.ink }),
+          txt("is now level", { fontSize: 24, fontWeight: 800, color: C.inkSoft, marginLeft: 12, marginBottom: 3 }),
+          big(String(d.level || 1), 60, C.gold, { marginLeft: 14 })
+        ),
+        h("div", { height: 5, borderRadius: 5, backgroundColor: C.ink, opacity: 0.12, marginTop: 20, marginBottom: 16, width: 520 }),
+        d.rewardLabel
+          ? h(
+              "div",
+              { alignItems: "center" },
+              sticker("REWARD UNLOCKED", C.teal, -3, { fontSize: 15 }),
+              txt(clip(latin(d.rewardLabel, ""), 42), { fontFamily: "Fredoka", fontSize: 24, marginLeft: 18, color: C.ink })
+            )
+          : txt(d.nextRewardLevel ? `Next in-game reward at level ${d.nextRewardLevel}` : "Keep chatting to climb the board", {
+              fontSize: 22,
+              fontWeight: 800,
+              color: C.inkSoft,
+            })
       ),
-      h("div", { height: 1, backgroundColor: C.glassBorder, marginTop: 22, marginBottom: 18, width: 520 }),
-      d.rewardLabel
-        ? h(
-            "div",
-            { alignItems: "center" },
-            pill("REWARD UNLOCKED", C.teal, { fontSize: 15 }),
-            txt(clip(latin(d.rewardLabel, ""), 44), { fontSize: 22, fontWeight: 700, marginLeft: 14, color: C.text })
-          )
-        : txt(
-            d.nextRewardLevel ? `Next in-game reward at level ${d.nextRewardLevel}` : "Keep chatting to climb the board",
-            { fontSize: 22, color: C.muted }
-          )
-    ),
-    watermark(52, H - 26),
-  ], C.gold);
+    ],
+    [cubeFace(W - 90, -24, 84, C.pink, 12, "wow"), cubeFace(-26, H - 70, 70, C.teal, -14), cubeFace(W - 120, H - 66, 56, C.purple, -8)]
+  );
 
   return raster(tree, W, H);
 }
@@ -553,63 +606,82 @@ async function levelup(d) {
 async function leaderboard(d) {
   const rows = (d.rows || []).slice(0, 10);
   const W = 1000;
-  const ROW = 64;
-  const H = 150 + rows.length * (ROW + 4) + 56;
+  const ROW = 62;
+  const H = 150 + rows.length * (ROW + 6) + 56;
   const avatars = await Promise.all(rows.map((r) => dataUri(r.avatarUrl)));
-  const medal = ["#ffd54a", "#cfd8e3", "#d59a66"];
+  const medal = [C.gold, "#d9dde6", "#e0a370"];
 
-  const tree = backdrop(W, H, [
-    glass(
-      { position: "absolute", left: 28, top: 28, width: W - 56, height: H - 56, padding: 28, flexDirection: "column" },
-      h(
-        "div",
-        { alignItems: "flex-end", justifyContent: "space-between", marginBottom: 14 },
+  const tree = backdrop(
+    W,
+    H,
+    C.purple,
+    C.purpleStripe,
+    [
+      panel(
+        30,
+        30,
+        W - 60,
+        H - 60,
+        { padding: 26, flexDirection: "column" },
         h(
           "div",
-          { alignItems: "flex-end" },
-          txt("TOP CUBES", {
-            fontFamily: "Fredoka",
-            fontSize: 46,
-            lineHeight: 1,
-            backgroundImage: TITLE_GRADIENT,
-            backgroundClip: "text",
-            color: "transparent",
-          }),
-          txt(`${fmt(d.total)} ranked`, { fontSize: 18, color: C.muted, marginLeft: 16, marginBottom: 4 })
+          { alignItems: "flex-end", justifyContent: "space-between", marginBottom: 16, paddingLeft: 6 },
+          h(
+            "div",
+            { alignItems: "flex-end" },
+            big("TOP CUBES", 46, C.gold),
+            txt(`${fmt(d.total)} ranked`, { fontSize: 18, fontWeight: 800, color: C.inkSoft, marginLeft: 16, marginBottom: 4 })
+          ),
+          txt("chat to earn XP · linked accounts get in-game rewards", { fontSize: 15, fontWeight: 700, color: C.inkFaint, marginBottom: 6 })
         ),
-        txt("chat to earn XP · linked accounts get in-game rewards", { fontSize: 15, color: C.faint, marginBottom: 6 })
+        ...rows.map((r, i) =>
+          h(
+            "div",
+            {
+              alignItems: "center",
+              height: ROW,
+              borderRadius: 16,
+              paddingLeft: 12,
+              paddingRight: 18,
+              marginBottom: 6,
+              backgroundColor: i < 3 ? C.white : i % 2 ? C.creamDark : "rgba(0,0,0,0)",
+              border: i < 3 ? `4px solid ${C.ink}` : "4px solid rgba(0,0,0,0)",
+            },
+            h(
+              "div",
+              {
+                width: 44,
+                height: 44,
+                borderRadius: 12,
+                backgroundColor: medal[i] || C.creamDark,
+                border: `4px solid ${C.ink}`,
+                alignItems: "center",
+                justifyContent: "center",
+                fontFamily: "Fredoka",
+                fontSize: 20,
+                color: C.ink,
+                marginRight: 14,
+                transform: `rotate(${i < 3 ? -6 : 0}deg)`,
+              },
+              String(r.rank)
+            ),
+            h(
+              "div",
+              { width: 44, height: 44, borderRadius: 44, border: `3px solid ${C.ink}`, backgroundColor: C.pink, marginRight: 14, overflow: "hidden" },
+              avatars[i] ? h("img", { src: avatars[i], width: 38, height: 38, borderRadius: 38 }) : null
+            ),
+            txt(clip(latin(r.name, r.username), 24), { fontFamily: "Fredoka", fontSize: 26, flexGrow: 1, color: C.ink }),
+            sticker(`LVL ${r.level}`, C.pink, 0, { fontSize: 14, marginRight: 18 }),
+            txt(`${fmt(r.xp)} XP`, { fontSize: 20, fontWeight: 800, color: C.inkSoft, width: 140, justifyContent: "flex-end" })
+          )
+        ),
+        rows.length === 0
+          ? txt("Nobody has XP yet - say something!", { fontFamily: "Fredoka", fontSize: 24, color: C.inkSoft, marginTop: 10 })
+          : null
       ),
-      ...rows.map((r, i) =>
-        h(
-          "div",
-          {
-            alignItems: "center",
-            height: ROW,
-            borderRadius: 16,
-            paddingLeft: 14,
-            paddingRight: 18,
-            marginBottom: 4,
-            backgroundColor: i === 0 ? "rgba(255,221,0,0.10)" : i % 2 ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.0)",
-            border: i === 0 ? `1px solid rgba(255,221,0,0.45)` : "1px solid rgba(255,255,255,0.0)",
-          },
-          txt(`#${r.rank}`, {
-            fontFamily: "Fredoka",
-            fontSize: 26,
-            width: 64,
-            color: medal[i] || C.muted,
-          }),
-          avatars[i]
-            ? h("img", { src: avatars[i], width: 42, height: 42, borderRadius: 21, marginRight: 14 })
-            : h("div", { width: 42, height: 42, borderRadius: 21, backgroundColor: "#1f1b3f", marginRight: 14 }),
-          txt(clip(latin(r.name, r.username), 26), { fontSize: 24, fontWeight: 800, flexGrow: 1, color: C.text }),
-          pill(`LVL ${r.level}`, C.pink, { fontSize: 14, marginRight: 16 }),
-          txt(`${fmt(r.xp)} XP`, { fontSize: 20, color: C.muted, width: 140, justifyContent: "flex-end" })
-        )
-      ),
-      rows.length === 0 ? txt("Nobody has XP yet — say something!", { fontSize: 22, color: C.muted, marginTop: 20 }) : null
-    ),
-    watermark(52, H - 26),
-  ]);
+    ],
+    [cubeFace(W - 92, -26, 86, C.gold, 14), cubeFace(-28, H - 76, 78, C.teal, -12, "wow")]
+  );
 
   return raster(tree, W, H);
 }
