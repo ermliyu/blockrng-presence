@@ -174,6 +174,24 @@ function pickUser(u) {
   return { id: u.id, username: u.username, global_name: u.global_name || null, avatar: u.avatar || null };
 }
 
+// ── Scheduled ticks ──────────────────────────────────────────────────────────
+// The Worker can't hold a timer; we can. POST /schedule {at} → at that second
+// we send a TICK event and the Worker ends whatever giveaway/poll is due.
+// Deduped per second; capped so a bug can't pile up timers.
+const ticks = new Map(); // at (sec) -> timeout
+function scheduleTick(at) {
+  const sec = Math.max(Math.floor(at), Math.floor(Date.now() / 1000));
+  if (ticks.has(sec) || ticks.size > 500) return;
+  const delay = Math.max(0, sec * 1000 - Date.now()) + 500;
+  ticks.set(
+    sec,
+    setTimeout(() => {
+      ticks.delete(sec);
+      forward({ t: "TICK", at: sec });
+    }, Math.min(delay, 7 * 24 * 3600 * 1000))
+  );
+}
+
 // ── HTTP: keep-awake ping + render endpoint ─────────────────────────────────
 
 const port = process.env.PORT || 10000;
@@ -181,6 +199,28 @@ const MAX_BODY = 1024 * 1024;
 
 http
   .createServer((req, res) => {
+    if (req.method === "POST" && req.url === "/schedule") {
+      const chunks = [];
+      req.on("data", (c) => chunks.push(c));
+      req.on("end", () => {
+        const body = Buffer.concat(chunks).toString("utf8");
+        if (!verify(body, req.headers["x-render-signature"])) {
+          res.writeHead(401);
+          return res.end("bad signature");
+        }
+        try {
+          const { at } = JSON.parse(body);
+          if (Number.isFinite(at)) scheduleTick(at);
+          res.writeHead(200);
+          res.end("ok");
+        } catch (_) {
+          res.writeHead(400);
+          res.end("bad json");
+        }
+      });
+      return;
+    }
+
     if (req.method === "POST" && req.url === "/render") {
       const chunks = [];
       let size = 0;
@@ -220,7 +260,7 @@ http
     res.writeHead(200, { "Content-Type": "text/plain" });
     const state = fatalReason ? `dead: ${fatalReason}` : connected ? "online" : "connecting";
     const members = privilegedAllowed ? "" : " (no member intent — enable Server Members Intent in the dev portal)";
-    res.end(`v2.9 ${state}${members} | forwarded ${forwardStats.sent}, failed ${forwardStats.failed}, throttled ${forwardStats.dropped}`);
+    res.end(`v3.0 ${state}${members} | forwarded ${forwardStats.sent}, failed ${forwardStats.failed}, throttled ${forwardStats.dropped}`);
   })
   .listen(port, () => console.log(`http on :${port}`));
 
