@@ -986,7 +986,7 @@ async function poll(d) {
   const total = answers.reduce((a, x) => a + (x.votes || 0), 0);
   const W = 1000;
   const ROW = 96;
-  const H = 150 + answers.length * ROW + 30;
+  const H = 150 + answers.length * ROW + 70;
   const palette = [C.gold, C.pink, C.teal, C.purple, C.orange, C.gold, C.pink, C.teal];
   const stripes = [C.goldStripe, C.pinkStripe, C.tealStripe, C.purpleStripe, C.orange, C.goldStripe, C.pinkStripe, C.tealStripe];
   const max = Math.max(1, ...answers.map((x) => x.votes || 0));
