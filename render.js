@@ -776,7 +776,8 @@ async function banner(d) {
   const H = 380;
   const colors = { gold: C.gold, pink: C.pink, teal: C.teal, purple: C.purple, orange: C.orange };
   const title = String(d.title || "ROLL A CUBE").toUpperCase();
-  const size = title.length > 14 ? 66 : title.length > 11 ? 76 : 84;
+  const icon = await dataUri(d.iconUrl);
+  const size = title.length > 14 ? 60 : title.length > 11 ? 70 : 80;
   const chips = (d.chips || []).slice(0, 4);
   const tree = backdrop(
     W,
@@ -799,19 +800,107 @@ async function banner(d) {
         ),
         h(
           "div",
-          { flexDirection: "column", width: 780, marginLeft: 20, justifyContent: "center" },
+          { flexDirection: "column", width: icon ? 600 : 780, marginLeft: 20, justifyContent: "center" },
           big(title, size, C.gold),
           d.subtitle ? txt(latin(d.subtitle, ""), { fontFamily: "Fredoka", fontSize: 28, color: C.ink, marginTop: 10 }) : null,
           chips.length
-            ? h("div", { height: 5, borderRadius: 5, backgroundColor: C.ink, opacity: 0.12, marginTop: 22, marginBottom: 22, width: 640 })
+            ? h("div", { height: 5, borderRadius: 5, backgroundColor: C.ink, opacity: 0.12, marginTop: 22, marginBottom: 22, width: icon ? 540 : 640 })
             : null,
           chips.length
             ? h("div", { alignItems: "center" }, ...chips.map((c, i) => h("div", { marginRight: 16 }, sticker(latin(c.label, ""), colors[c.color] || C.gold, i % 2 ? 2 : -3, { fontSize: 18 }))))
             : null
-        )
+        ),
+        icon
+          ? h(
+              "div",
+              { position: "relative", width: 170, height: 260, alignItems: "center", justifyContent: "center", flexDirection: "column", flexShrink: 0, marginLeft: 10 },
+              h(
+                "div",
+                { position: "relative", width: 150, height: 150, transform: "rotate(5deg)" },
+                h("div", { position: "absolute", left: 6, top: 8, width: 150, height: 150, borderRadius: 22, backgroundColor: C.ink }),
+                h(
+                  "div",
+                  { position: "absolute", left: 0, top: 0, width: 150, height: 150, borderRadius: 22, backgroundColor: C.white, border: `5px solid ${C.ink}`, padding: 8 },
+                  h("img", { src: icon, width: 124, height: 124, borderRadius: 14 })
+                )
+              ),
+              d.iconLabel ? txt(latin(d.iconLabel, ""), { fontFamily: "Fredoka", fontSize: 20, color: C.ink, marginTop: 22 }) : null
+            )
+          : null
       ),
     ],
     [cubeFace(W - 96, -28, 90, C.orange, 14), cubeFace(-30, H - 80, 84, C.teal, -12, "wow"), cubeFace(W * 0.55, H - 46, 54, C.pink, 8)]
+  );
+  return raster(tree, W, H);
+}
+
+// ── Person card (1200 × 500): credits page, welcome-card layout ──────────────
+
+async function person(d) {
+  const W = 1200;
+  const H = 500;
+  const colors = { gold: C.gold, pink: C.pink, teal: C.teal, purple: C.purple, orange: C.orange };
+  const stripesOf = { gold: C.goldStripe, pink: C.pinkStripe, teal: C.tealStripe, purple: C.purpleStripe, orange: C.orange };
+  const bg = colors[d.bg] || C.purple;
+  const [av, icon] = await Promise.all([dataUri(d.imageUrl), dataUri(d.gameIconUrl)]);
+  const name = clip(latin(d.name, "Cube"), 16);
+  const roles = (d.roles || []).slice(0, 5);
+  const chipColors = ["gold", "pink", "teal", "purple", "orange"];
+  const quote = d.quote ? clip(latin(d.quote, ""), 120) : "";
+
+  const tree = backdrop(
+    W,
+    H,
+    bg,
+    stripesOf[d.bg] || C.purpleStripe,
+    [
+      panel(
+        40,
+        40,
+        W - 80,
+        H - 80,
+        { padding: 30, alignItems: "center" },
+        h(
+          "div",
+          { position: "relative", width: 240, height: 300, alignItems: "center", justifyContent: "center" },
+          avatar(av, 216, name),
+          at(30, 236, sticker(latin(String(d.title || "TEAM"), "TEAM").toUpperCase(), colors[d.titleColor] || C.gold, -6, { fontSize: 18 }))
+        ),
+        h(
+          "div",
+          { flexDirection: "column", width: 560, marginLeft: 30, marginRight: 16, justifyContent: "center" },
+          big(name.toUpperCase(), name.length > 10 ? 60 : 74, C.gold),
+          txt(`@${latin(d.handle, "cube")}`, { fontSize: 22, fontWeight: 800, color: C.inkSoft, marginTop: 6 }),
+          roles.length
+            ? h("div", { alignItems: "center", marginTop: 16, flexWrap: "wrap" }, ...roles.map((r, i) => h("div", { marginRight: 12, marginBottom: 8 }, sticker(latin(r, "").toUpperCase(), colors[chipColors[i % 5]], i % 2 ? 2 : -3, { fontSize: 15 }))))
+            : null,
+          quote
+            ? h(
+                "div",
+                { marginTop: 16, padding: 14, borderRadius: 16, backgroundColor: C.creamDark, border: `3px solid ${C.ink}`, width: 540 },
+                txt(`"${quote}"`, { fontFamily: "Fredoka", fontSize: quote.length > 70 ? 18 : 22, color: C.ink })
+              )
+            : null
+        ),
+        h(
+          "div",
+          { position: "relative", width: 190, height: 300, alignItems: "center", justifyContent: "center", flexDirection: "column", flexShrink: 0 },
+          h(
+            "div",
+            { position: "relative", width: 150, height: 150, transform: "rotate(5deg)" },
+            h("div", { position: "absolute", left: 6, top: 8, width: 150, height: 150, borderRadius: 22, backgroundColor: C.ink }),
+            h(
+              "div",
+              { position: "absolute", left: 0, top: 0, width: 150, height: 150, borderRadius: 22, backgroundColor: C.white, border: `5px solid ${C.ink}`, padding: 8 },
+              icon ? h("img", { src: icon, width: 124, height: 124, borderRadius: 14 }) : h("div", { width: 124, height: 124, borderRadius: 14, backgroundColor: C.pink })
+            )
+          ),
+          txt("ROLL A CUBE", { fontFamily: "Fredoka", fontSize: 24, color: C.ink, marginTop: 24 }),
+          txt(latin(d.footer || "credits", ""), { fontSize: 18, fontWeight: 800, color: C.inkSoft, marginTop: 2 })
+        )
+      ),
+    ],
+    [cubeFace(W - 150, -30, 130, colors[d.cube1] || C.gold, 14, d.mood || "smile"), cubeFace(-40, H - 120, 120, colors[d.cube2] || C.pink, -12), cubeFace(W * 0.42, H - 62, 64, C.teal, 8, "wow")]
   );
   return raster(tree, W, H);
 }
@@ -1046,7 +1135,7 @@ async function raster(tree, width, height) {
   return Buffer.from(png);
 }
 
-const KINDS = { welcome, rank, levelup, leaderboard, rules, icon, banner, pet, sheet, poll };
+const KINDS = { welcome, rank, levelup, leaderboard, rules, icon, banner, pet, sheet, poll, person };
 
 async function render(kind, data) {
   const fn = KINDS[kind];
