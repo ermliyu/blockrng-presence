@@ -979,6 +979,63 @@ async function sheet(d) {
   return raster(tree, W, H);
 }
 
+// ── Poll results (1000 × dynamic) ────────────────────────────────────────────
+
+async function poll(d) {
+  const answers = (d.answers || []).slice(0, 8);
+  const total = answers.reduce((a, x) => a + (x.votes || 0), 0);
+  const W = 1000;
+  const ROW = 96;
+  const H = 150 + answers.length * ROW + 30;
+  const palette = [C.gold, C.pink, C.teal, C.purple, C.orange, C.gold, C.pink, C.teal];
+  const stripes = [C.goldStripe, C.pinkStripe, C.tealStripe, C.purpleStripe, C.orange, C.goldStripe, C.pinkStripe, C.tealStripe];
+  const max = Math.max(1, ...answers.map((x) => x.votes || 0));
+  const question = clip(latin(d.question, "Poll"), 60);
+
+  const rows = answers.map((a, i) => {
+    const n = a.votes || 0;
+    const pct = total ? Math.round((n / total) * 100) : 0;
+    const lead = total && n === max;
+    return h(
+      "div",
+      { flexDirection: "column", height: ROW, justifyContent: "center" },
+      h(
+        "div",
+        { alignItems: "flex-end", justifyContent: "space-between", marginBottom: 8 },
+        txt(clip(latin(a.text, "?"), 40), { fontFamily: "Fredoka", fontSize: 26, color: C.ink }),
+        txt(`${pct}%  ·  ${fmt(n)} vote${n === 1 ? "" : "s"}`, { fontFamily: "Fredoka", fontSize: 20, color: lead ? C.ink : C.inkSoft })
+      ),
+      bar(880, total ? n / total : 0, 30, palette[i], stripes[i])
+    );
+  });
+
+  const tree = backdrop(
+    W,
+    H,
+    d.ended ? C.purple : C.teal,
+    d.ended ? C.purpleStripe : C.tealStripe,
+    [
+      panel(
+        30,
+        30,
+        W - 60,
+        H - 60,
+        { padding: 28, flexDirection: "column" },
+        h(
+          "div",
+          { alignItems: "flex-end", justifyContent: "space-between", marginBottom: 14 },
+          big(question, question.length > 30 ? 34 : 44, C.gold),
+          d.ended ? h("div", { marginBottom: 6 }, sticker("CLOSED", C.orange, -4, { fontSize: 15 })) : null
+        ),
+        ...rows,
+        txt(`${fmt(total)} vote${total === 1 ? "" : "s"}${d.multiple ? "  ·  multiple answers allowed" : ""}`, { fontSize: 18, fontWeight: 800, color: C.inkSoft, marginTop: 6 })
+      ),
+    ],
+    [cubeFace(W - 90, -26, 84, C.gold, 14), cubeFace(-28, H - 72, 76, C.pink, -10, "wow")]
+  );
+  return raster(tree, W, H);
+}
+
 // ── Raster ───────────────────────────────────────────────────────────────────
 
 async function raster(tree, width, height) {
@@ -989,7 +1046,7 @@ async function raster(tree, width, height) {
   return Buffer.from(png);
 }
 
-const KINDS = { welcome, rank, levelup, leaderboard, rules, icon, banner, pet, sheet };
+const KINDS = { welcome, rank, levelup, leaderboard, rules, icon, banner, pet, sheet, poll };
 
 async function render(kind, data) {
   const fn = KINDS[kind];
