@@ -1,12 +1,17 @@
 {
   "name": "blockrng-presence",
-  "version": "1.0.0",
-  "description": "Keeps the Block RNG Discord bot's green online dot lit. Presence only — all real bot logic lives in the Cloudflare Worker.",
+  "version": "2.0.0",
+  "description": "Roll A Cube bot sidecar: keeps the Discord gateway open (online dot + join/message events forwarded to the Cloudflare Worker) and renders the PNG cards (welcome / rank / level-up / leaderboard) the Worker can't render on its CPU budget.",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "preview": "node preview.js"
   },
   "engines": {
     "node": ">=21"
+  },
+  "dependencies": {
+    "@resvg/resvg-wasm": "2.6.2",
+    "satori": "0.33.4"
   }
 }
