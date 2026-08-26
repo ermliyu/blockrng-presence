@@ -909,11 +909,12 @@ async function person(d) {
 
 async function team(d) {
   const W = 1200;
-  const H = 640;
+  const H = 700;
   const colors = { gold: C.gold, pink: C.pink, teal: C.teal, purple: C.purple, orange: C.orange };
   const people = (d.people || []).slice(0, 4);
   const images = await Promise.all(people.map((p) => dataUri(p.imageUrl)));
   const colW = Math.floor((W - 80 - 68) / Math.max(1, people.length));
+  const chipColorsT = ["gold", "pink", "teal", "purple", "orange"];
 
   const cols = people.map((p, i) =>
     h(
@@ -925,9 +926,13 @@ async function team(d) {
         avatar(images[i], 170, p.name),
         at(28, 156, sticker(latin(String(p.title || "TEAM"), "TEAM").toUpperCase(), colors[p.titleColor] || C.gold, i % 2 ? 5 : -6, { fontSize: 15 }))
       ),
-      big(clip(latin(p.name, "Cube"), 12).toUpperCase(), 40, colors[p.nameColor] || C.gold, { marginTop: 8 }),
-      txt(`@${latin(p.handle, "cube")}`, { fontSize: 18, fontWeight: 800, color: C.inkSoft, marginTop: 2 }),
-      txt(latin((p.roles || []).join("  ·  "), ""), { fontFamily: "Fredoka", fontSize: (p.roles || []).join("").length > 24 ? 15 : 17, color: C.ink, marginTop: 10, textAlign: "center", width: colW - 16 })
+      big(clip(latin(p.name, "Cube"), 12).toUpperCase(), 44, colors[p.nameColor] || C.gold, { marginTop: 8 }),
+      txt(`@${latin(p.handle, "cube")}`, { fontFamily: "Fredoka", fontSize: 22, color: C.inkSoft, marginTop: 2 }),
+      h(
+        "div",
+        { flexWrap: "wrap", justifyContent: "center", width: colW - 12, marginTop: 12 },
+        ...(p.roles || []).slice(0, 5).map((r, j) => h("div", { marginLeft: 5, marginRight: 5, marginBottom: 10 }, sticker(latin(r, "").toUpperCase(), colors[chipColorsT[(i + j) % 5]], j % 2 ? 3 : -3, { fontSize: 14 })))
+      )
     )
   );
 
