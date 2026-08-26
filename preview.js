@@ -42,6 +42,8 @@ const samples = {
     rewardLabel: "2x Luck potion (in game)",
   },
   rules: { count: 19 },
+  pet: { name: "Allan", odds: "1 in 5,200", where: "Moon", tier: "Empyrean", iconUrl: "https://cdn.discordapp.com/embed/avatars/1.png", damage: 17500000, health: 175000000 },
+  sheet: { title: "Grass Lands", subtitle: "12 pets", pets: Array.from({ length: 12 }, (_, i) => ({ name: ["Happy Cube","Jolly Cube","Meh Cube","Worry Cube","Yawn Cube","Party Cube","Ouchy Cube","Hehehe Cube","White Cube","Red","Glob","Batty"][i], odds: `1 in ${(i + 1) * 7}`, iconUrl: `https://cdn.discordapp.com/embed/avatars/${i % 6}.png`, tier: ["common","rare","legendary","mythic"][i % 4] })) },
   banner: { title: "PICK YOUR ROLES", subtitle: "Roll A Cube  ·  tell the server about you", chips: [{ label: "REGION", color: "teal" }, { label: "PINGS", color: "gold" }, { label: "PLATFORM", color: "pink" }] },
   icon: { color: "pink", mood: "wow", rot: 10 },
   leaderboard: {

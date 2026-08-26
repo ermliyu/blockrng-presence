@@ -817,6 +817,152 @@ async function icon(d) {
   return raster(tree, S, S);
 }
 
+// ── Pet card (900 × 360) ─────────────────────────────────────────────────────
+
+const TIER_COLORS = {
+  common: C.teal,
+  uncommon: C.teal,
+  rare: C.purple,
+  epic: C.purple,
+  legendary: C.gold,
+  mythic: C.pink,
+  mythical: C.pink,
+  fabled: C.pink,
+  eclipse: C.orange,
+  empyrean: C.gold,
+};
+function tierColor(tier) {
+  return TIER_COLORS[String(tier || "").toLowerCase()] || C.gold;
+}
+
+// Icon slot: the Roblox thumbnail on a cream tile with an ink outline.
+function petTile(uri, size, name, color) {
+  const inner = size - 20;
+  return h(
+    "div",
+    { position: "relative", width: size, height: size },
+    h("div", { position: "absolute", left: 7, top: 9, width: size, height: size, borderRadius: Math.round(size * 0.18), backgroundColor: C.ink }),
+    h(
+      "div",
+      {
+        position: "absolute",
+        left: 0,
+        top: 0,
+        width: size,
+        height: size,
+        borderRadius: Math.round(size * 0.18),
+        backgroundColor: C.white,
+        border: `5px solid ${C.ink}`,
+        alignItems: "center",
+        justifyContent: "center",
+      },
+      uri
+        ? h("img", { src: uri, width: inner, height: inner, borderRadius: Math.round(inner * 0.12) })
+        : cubeFace((size - inner * 0.7) / 2 - 5, (size - inner * 0.7) / 2 - 5, Math.round(inner * 0.7), color || C.pink, -6)
+    )
+  );
+}
+
+async function pet(d) {
+  const W = 900;
+  const H = 360;
+  const icon = await dataUri(d.iconUrl);
+  const name = clip(latin(d.name, "Pet"), 20);
+  const color = tierColor(d.tier);
+  const tree = backdrop(
+    W,
+    H,
+    d.meteor ? C.purple : C.teal,
+    d.meteor ? C.purpleStripe : C.tealStripe,
+    [
+      panel(
+        30,
+        30,
+        W - 60,
+        H - 60,
+        { padding: 30, alignItems: "center" },
+        petTile(icon, 220, name, color),
+        h(
+          "div",
+          { flexDirection: "column", flexGrow: 1, marginLeft: 34, justifyContent: "center" },
+          h(
+            "div",
+            { alignItems: "center" },
+            big(name, name.length > 12 ? 44 : 56, C.gold),
+            d.tier ? h("div", { marginLeft: 14 }, sticker(latin(String(d.tier), "").toUpperCase(), color, -4, { fontSize: 15 })) : null
+          ),
+          h(
+            "div",
+            { alignItems: "flex-end", marginTop: 14 },
+            txt("ODDS", { fontFamily: "Fredoka", fontSize: 18, letterSpacing: 3, color: C.inkSoft, marginRight: 12, marginBottom: 6 }),
+            txt(latin(d.odds, "?"), { fontFamily: "Fredoka", fontSize: 40, lineHeight: 1, color: C.ink })
+          ),
+          txt(`Found in ${latin(d.where, "the game")}`, { fontSize: 22, fontWeight: 800, color: C.inkSoft, marginTop: 8 }),
+          d.damage || d.health
+            ? h(
+                "div",
+                { alignItems: "center", marginTop: 18 },
+                sticker(`DMG ${fmt(d.damage)}`, C.pink, -2, { fontSize: 15 }),
+                h("div", { width: 14 }),
+                sticker(`HP ${fmt(d.health)}`, C.teal, 2, { fontSize: 15 })
+              )
+            : null
+        )
+      ),
+    ],
+    [cubeFace(W - 90, -26, 84, C.gold, 14), cubeFace(-28, H - 72, 76, C.pink, -10, "wow")]
+  );
+  return raster(tree, W, H);
+}
+
+// ── Sheet (1000 × dynamic): a grid of pets for one area ─────────────────────
+
+async function sheet(d) {
+  const pets = (d.pets || []).slice(0, 60);
+  const COLS = 5;
+  const CELL_W = 176;
+  const CELL_H = 200;
+  const rows = Math.max(1, Math.ceil(pets.length / COLS));
+  const W = 1000;
+  const H = 150 + rows * CELL_H + 40;
+  const icons = await Promise.all(pets.map((p) => dataUri(p.iconUrl)));
+
+  const cells = pets.map((p, i) =>
+    h(
+      "div",
+      { width: CELL_W, height: CELL_H, flexDirection: "column", alignItems: "center", paddingTop: 10 },
+      petTile(icons[i], 108, p.name, tierColor(p.tier)),
+      txt(clip(latin(p.name, "Pet"), 15), { fontFamily: "Fredoka", fontSize: 19, color: C.ink, marginTop: 12 }),
+      txt(latin(p.odds, "?"), { fontSize: 16, fontWeight: 800, color: C.inkSoft, marginTop: 2 })
+    )
+  );
+
+  const tree = backdrop(
+    W,
+    H,
+    C.purple,
+    C.purpleStripe,
+    [
+      panel(
+        30,
+        30,
+        W - 60,
+        H - 60,
+        { padding: 24, flexDirection: "column" },
+        h(
+          "div",
+          { alignItems: "flex-end", marginBottom: 6, paddingLeft: 8 },
+          big(latin(d.title, "AREA").toUpperCase(), 40, C.gold),
+          d.subtitle ? txt(latin(d.subtitle, ""), { fontSize: 18, fontWeight: 800, color: C.inkSoft, marginLeft: 16, marginBottom: 8 }) : null
+        ),
+        h("div", { flexWrap: "wrap", width: COLS * CELL_W, marginLeft: 8 }, ...cells)
+      ),
+    ],
+    [cubeFace(W - 92, -26, 86, C.gold, 14), cubeFace(-28, H - 76, 78, C.teal, -12, "wow")]
+  );
+  return raster(tree, W, H);
+}
+
 // ── Raster ───────────────────────────────────────────────────────────────────
 
 async function raster(tree, width, height) {
@@ -827,7 +973,7 @@ async function raster(tree, width, height) {
   return Buffer.from(png);
 }
 
-const KINDS = { welcome, rank, levelup, leaderboard, rules, icon, banner };
+const KINDS = { welcome, rank, levelup, leaderboard, rules, icon, banner, pet, sheet };
 
 async function render(kind, data) {
   const fn = KINDS[kind];

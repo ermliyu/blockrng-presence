@@ -46,10 +46,18 @@ const WORKER_URL = (process.env.WORKER_URL || "https://blockrng-bot.blockrng.wor
 const INTENT_GUILDS = 1 << 0;
 const INTENT_GUILD_MEMBERS = 1 << 1;
 const INTENT_GUILD_MESSAGES = 1 << 9;
+const INTENT_GUILD_MESSAGE_REACTIONS = 1 << 10;
 let privilegedAllowed = true;
 function intents() {
-  return INTENT_GUILDS | INTENT_GUILD_MESSAGES | (privilegedAllowed ? INTENT_GUILD_MEMBERS : 0);
+  return INTENT_GUILDS | INTENT_GUILD_MESSAGES | INTENT_GUILD_MESSAGE_REACTIONS | (privilegedAllowed ? INTENT_GUILD_MEMBERS : 0);
 }
+
+// Channels whose EVERY message and reaction is forwarded (no XP throttle):
+// the suggestions starboard. Override with WATCH_CHANNELS=id,id.
+const WATCH_CHANNELS = new Set(
+  (process.env.WATCH_CHANNELS || "1521957458740777090,1521957562256195695").split(",").map((s) => s.trim()).filter(Boolean)
+);
+let botUserId = null;
 
 // ── State ────────────────────────────────────────────────────────────────────
 
@@ -122,11 +130,23 @@ function onDispatch(t, d) {
       user: pickUser(d.user),
       joined_at: d.joined_at,
     });
+  } else if (t === "MESSAGE_REACTION_ADD" || t === "MESSAGE_REACTION_REMOVE") {
+    if (!d || !d.guild_id || !WATCH_CHANNELS.has(d.channel_id)) return;
+    if (botUserId && d.user_id === botUserId) return;
+    forward({
+      t,
+      guild_id: d.guild_id,
+      channel_id: d.channel_id,
+      message_id: d.message_id,
+      user_id: d.user_id,
+      emoji: d.emoji ? d.emoji.name : null,
+    });
   } else if (t === "MESSAGE_CREATE") {
     if (!d || !d.guild_id || !d.author || d.author.bot || d.webhook_id) return;
     const now = Date.now();
+    const watch = WATCH_CHANNELS.has(d.channel_id);
     const last = lastForwarded.get(d.author.id) || 0;
-    if (now - last < XP_WINDOW_MS) {
+    if (!watch && now - last < XP_WINDOW_MS) {
       forwardStats.dropped++;
       return;
     }
@@ -143,6 +163,7 @@ function onDispatch(t, d) {
       user: pickUser(d.author),
       // The member's server nickname, when the gateway includes it.
       nick: d.member ? d.member.nick || null : null,
+      watch,
     });
   }
 }
@@ -197,7 +218,7 @@ http
     res.writeHead(200, { "Content-Type": "text/plain" });
     const state = fatalReason ? `dead: ${fatalReason}` : connected ? "online" : "connecting";
     const members = privilegedAllowed ? "" : " (no member intent — enable Server Members Intent in the dev portal)";
-    res.end(`v2.6 ${state}${members} | forwarded ${forwardStats.sent}, failed ${forwardStats.failed}, throttled ${forwardStats.dropped}`);
+    res.end(`v2.7 ${state}${members} | forwarded ${forwardStats.sent}, failed ${forwardStats.failed}, throttled ${forwardStats.dropped}`);
   })
   .listen(port, () => console.log(`http on :${port}`));
 
@@ -326,6 +347,7 @@ function connect() {
         connected = true;
         sessionId = msg.d.session_id;
         resumeUrl = msg.d.resume_gateway_url ? `${msg.d.resume_gateway_url}/?v=10&encoding=json` : null;
+        botUserId = msg.d.user.id;
         console.log(`online as ${msg.d.user.username} (intents ${intents()})`);
         // Only call the connection healthy (and reset backoff) once it has
         // actually stayed up a while — READY followed by an instant drop
