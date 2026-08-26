@@ -93,12 +93,20 @@ function outline(px, color, drop) {
 // Chunky display text: Fredoka + ink outline + a little drop.
 function big(s, size, fill, style) {
   const px = Math.max(2, Math.round(size * 0.055));
+  const drop = Math.round(px * 1.2);
+  // Padding keeps the outline + drop inside the element's box: the shadow
+  // filter is clipped to it, so an unpadded "S" loses its left edge.
   return txt(s, {
     fontFamily: "Fredoka",
     fontSize: size,
     lineHeight: 1,
     color: fill || C.white,
-    textShadow: outline(px, C.ink, Math.round(px * 1.2)),
+    textShadow: outline(px, C.ink, drop),
+    whiteSpace: "nowrap",
+    paddingLeft: px + 2,
+    paddingRight: px + 2,
+    paddingTop: px,
+    paddingBottom: px + drop,
     ...style,
   });
 }
@@ -716,8 +724,8 @@ async function rules(d) {
         ),
         h(
           "div",
-          { flexDirection: "column", width: 600, marginLeft: 30, marginRight: 12, justifyContent: "center" },
-          big("SERVER RULES", 84, C.gold),
+          { flexDirection: "column", width: 620, marginLeft: 24, marginRight: 8, justifyContent: "center" },
+          big("SERVER RULES", 78, C.gold),
           txt("Roll A Cube  ·  read these before you post", {
             fontFamily: "Fredoka",
             fontSize: 28,
