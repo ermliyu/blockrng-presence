@@ -8,10 +8,12 @@
     "preview": "node preview.js"
   },
   "engines": {
-    "node": ">=21"
+    "node": ">=22 <27"
   },
   "dependencies": {
     "@resvg/resvg-wasm": "2.6.2",
     "satori": "0.33.4"
-  }
+  },
+  "private": true,
+  "license": "UNLICENSED"
 }
