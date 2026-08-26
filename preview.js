@@ -42,6 +42,7 @@ const samples = {
     rewardLabel: "2x Luck potion (in game)",
   },
   rules: { count: 19 },
+  banner: { title: "PICK YOUR ROLES", subtitle: "Roll A Cube  ·  tell the server about you", chips: [{ label: "REGION", color: "teal" }, { label: "PINGS", color: "gold" }, { label: "PLATFORM", color: "pink" }] },
   icon: { color: "pink", mood: "wow", rot: 10 },
   leaderboard: {
     total: 57,

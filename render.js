@@ -753,6 +753,53 @@ async function rules(d) {
   return raster(tree, W, H);
 }
 
+// ── Banner (1200 × 380): generic header — title, subtitle, chips, cubes ───────
+
+async function banner(d) {
+  const W = 1200;
+  const H = 380;
+  const colors = { gold: C.gold, pink: C.pink, teal: C.teal, purple: C.purple, orange: C.orange };
+  const title = String(d.title || "ROLL A CUBE").toUpperCase();
+  const size = title.length > 14 ? 66 : title.length > 11 ? 76 : 84;
+  const chips = (d.chips || []).slice(0, 4);
+  const tree = backdrop(
+    W,
+    H,
+    colors[d.bg] || C.purple,
+    d.bg === "teal" ? C.tealStripe : d.bg === "gold" ? C.goldStripe : d.bg === "pink" ? C.pinkStripe : C.purpleStripe,
+    [
+      panel(
+        40,
+        40,
+        W - 80,
+        H - 80,
+        { padding: 34, alignItems: "center" },
+        h(
+          "div",
+          { position: "relative", width: 250, height: 260 },
+          cubeFace(20, 120, 120, C.gold, -8),
+          cubeFace(120, 60, 96, C.pink, 12, "wow"),
+          cubeFace(60, 10, 70, C.teal, -18)
+        ),
+        h(
+          "div",
+          { flexDirection: "column", width: 780, marginLeft: 20, justifyContent: "center" },
+          big(title, size, C.gold),
+          d.subtitle ? txt(latin(d.subtitle, ""), { fontFamily: "Fredoka", fontSize: 28, color: C.ink, marginTop: 10 }) : null,
+          chips.length
+            ? h("div", { height: 5, borderRadius: 5, backgroundColor: C.ink, opacity: 0.12, marginTop: 22, marginBottom: 22, width: 640 })
+            : null,
+          chips.length
+            ? h("div", { alignItems: "center" }, ...chips.map((c, i) => h("div", { marginRight: 16 }, sticker(latin(c.label, ""), colors[c.color] || C.gold, i % 2 ? 2 : -3, { fontSize: 18 }))))
+            : null
+        )
+      ),
+    ],
+    [cubeFace(W - 96, -28, 90, C.orange, 14), cubeFace(-30, H - 80, 84, C.teal, -12, "wow"), cubeFace(W * 0.55, H - 46, 54, C.pink, 8)]
+  );
+  return raster(tree, W, H);
+}
+
 // ── Icon (160 × 160, transparent): one cube mascot, used as a thumbnail ──────
 
 async function icon(d) {
@@ -780,7 +827,7 @@ async function raster(tree, width, height) {
   return Buffer.from(png);
 }
 
-const KINDS = { welcome, rank, levelup, leaderboard, rules, icon };
+const KINDS = { welcome, rank, levelup, leaderboard, rules, icon, banner };
 
 async function render(kind, data) {
   const fn = KINDS[kind];
