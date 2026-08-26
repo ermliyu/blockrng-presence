@@ -846,7 +846,7 @@ async function person(d) {
   const name = clip(latin(d.name, "Cube"), 16);
   const roles = (d.roles || []).slice(0, 5);
   const chipColors = ["gold", "pink", "teal", "purple", "orange"];
-  const quote = d.quote ? clip(latin(d.quote, ""), 120) : "";
+  const quote = d.quote ? clip(latin(d.quote, ""), 180) : "";
 
   const tree = backdrop(
     W,
@@ -878,7 +878,7 @@ async function person(d) {
             ? h(
                 "div",
                 { marginTop: 16, padding: 14, borderRadius: 16, backgroundColor: C.creamDark, border: `3px solid ${C.ink}`, width: 540 },
-                txt(`"${quote}"`, { fontFamily: "Fredoka", fontSize: quote.length > 70 ? 18 : 22, color: C.ink })
+                txt(`"${quote}"`, { fontFamily: "Fredoka", fontSize: quote.length > 120 ? 16 : quote.length > 70 ? 18 : 22, color: C.ink })
               )
             : null
         ),
