@@ -41,6 +41,7 @@ const samples = {
     level: 5,
     rewardLabel: "2x Luck potion (in game)",
   },
+  rules: { count: 19 },
   leaderboard: {
     total: 57,
     rows: Array.from({ length: 10 }, (_, i) => ({

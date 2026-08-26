@@ -686,6 +686,65 @@ async function leaderboard(d) {
   return raster(tree, W, H);
 }
 
+// ── Rules header (1200 × 380) ────────────────────────────────────────────────
+
+async function rules(d) {
+  const W = 1200;
+  const H = 380;
+  const count = Number(d.count || 0);
+  const chip = (label, color, rot) => h("div", { marginRight: 16 }, sticker(label, color, rot, { fontSize: 18 }));
+
+  const tree = backdrop(
+    W,
+    H,
+    C.purple,
+    C.purpleStripe,
+    [
+      panel(
+        40,
+        40,
+        W - 80,
+        H - 80,
+        { padding: 34, alignItems: "center" },
+        // Left: a stack of "law" cubes.
+        h(
+          "div",
+          { position: "relative", width: 250, height: 260 },
+          cubeFace(20, 120, 120, C.gold, -8),
+          cubeFace(120, 60, 96, C.pink, 12, "wow"),
+          cubeFace(60, 10, 70, C.teal, -18)
+        ),
+        h(
+          "div",
+          { flexDirection: "column", width: 600, marginLeft: 30, marginRight: 12, justifyContent: "center" },
+          big("SERVER RULES", 84, C.gold),
+          txt("Roll A Cube  ·  read these before you post", {
+            fontFamily: "Fredoka",
+            fontSize: 28,
+            color: C.ink,
+            marginTop: 10,
+          }),
+          h("div", { height: 5, borderRadius: 5, backgroundColor: C.ink, opacity: 0.12, marginTop: 22, marginBottom: 22, width: 580 }),
+          h("div", { alignItems: "center" }, chip("BE COOL", C.teal, -3), chip("PLAY FAIR", C.pink, 2), chip("HAVE FUN", C.gold, -2))
+        ),
+        h(
+          "div",
+          { position: "relative", width: 150, height: 260, alignItems: "center", justifyContent: "center", flexShrink: 0 },
+          h(
+            "div",
+            { flexDirection: "column", alignItems: "center" },
+            big(String(count), 110, C.white),
+            txt("RULES", { fontFamily: "Fredoka", fontSize: 26, letterSpacing: 4, color: C.ink, marginTop: 4 })
+          )
+        )
+      ),
+    ],
+    [cubeFace(W - 96, -28, 90, C.orange, 14), cubeFace(-30, H - 80, 84, C.teal, -12, "wow"), cubeFace(W * 0.55, H - 46, 54, C.pink, 8)]
+  );
+
+  return raster(tree, W, H);
+}
+
 // ── Raster ───────────────────────────────────────────────────────────────────
 
 async function raster(tree, width, height) {
@@ -696,7 +755,7 @@ async function raster(tree, width, height) {
   return Buffer.from(png);
 }
 
-const KINDS = { welcome, rank, levelup, leaderboard };
+const KINDS = { welcome, rank, levelup, leaderboard, rules };
 
 async function render(kind, data) {
   const fn = KINDS[kind];
