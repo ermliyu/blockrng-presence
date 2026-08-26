@@ -909,7 +909,7 @@ async function person(d) {
 
 async function team(d) {
   const W = 1200;
-  const H = 560;
+  const H = 640;
   const colors = { gold: C.gold, pink: C.pink, teal: C.teal, purple: C.purple, orange: C.orange };
   const people = (d.people || []).slice(0, 4);
   const images = await Promise.all(people.map((p) => dataUri(p.imageUrl)));
@@ -949,7 +949,7 @@ async function team(d) {
           big("THE TEAM", 64, C.gold),
           txt(latin(d.subtitle || "", ""), { fontFamily: "Fredoka", fontSize: 24, color: C.inkSoft, marginLeft: 18, marginBottom: 10 })
         ),
-        h("div", { height: 5, borderRadius: 5, backgroundColor: C.ink, opacity: 0.12, marginTop: 12, marginBottom: 16, width: 700 }),
+        h("div", { height: 5, borderRadius: 5, backgroundColor: C.ink, opacity: 0.12, marginTop: 10, marginBottom: 10, width: 700 }),
         h("div", { alignItems: "flex-start", justifyContent: "center" }, ...cols)
       ),
     ],

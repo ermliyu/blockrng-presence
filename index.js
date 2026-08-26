@@ -260,7 +260,7 @@ http
     res.writeHead(200, { "Content-Type": "text/plain" });
     const state = fatalReason ? `dead: ${fatalReason}` : connected ? "online" : "connecting";
     const members = privilegedAllowed ? "" : " (no member intent — enable Server Members Intent in the dev portal)";
-    res.end(`v3.3 ${state}${members} | forwarded ${forwardStats.sent}, failed ${forwardStats.failed}, throttled ${forwardStats.dropped}`);
+    res.end(`v3.4 ${state}${members} | forwarded ${forwardStats.sent}, failed ${forwardStats.failed}, throttled ${forwardStats.dropped}`);
   })
   .listen(port, () => console.log(`http on :${port}`));
 
