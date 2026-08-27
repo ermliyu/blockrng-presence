@@ -290,7 +290,7 @@ function avatar(uri, size, name) {
         justifyContent: "center",
       },
       uri
-        ? h("img", { src: uri, width: inner, height: inner, borderRadius: inner })
+        ? h("img", { objectFit: "cover", src: uri, width: inner, height: inner, borderRadius: inner })
         : h(
             "div",
             {
@@ -436,7 +436,7 @@ async function welcome(d) {
                 padding: 8,
               },
               icon
-                ? h("img", { src: icon, width: 124, height: 124, borderRadius: 14 })
+                ? h("img", { objectFit: "cover", src: icon, width: 124, height: 124, borderRadius: 14 })
                 : h("div", { width: 124, height: 124, borderRadius: 14, backgroundColor: C.pink })
             )
           ),
@@ -507,7 +507,7 @@ async function rank(d) {
                     paddingBottom: 4,
                   },
                   head
-                    ? h("img", { src: head, width: 30, height: 30, borderRadius: 30, marginRight: 8 })
+                    ? h("img", { objectFit: "cover", src: head, width: 30, height: 30, borderRadius: 30, marginRight: 8 })
                     : h("div", { width: 30, height: 30, borderRadius: 30, backgroundColor: C.pink, marginRight: 8 }),
                   txt(`@${latin(d.robloxName, "linked")} linked`, { fontFamily: "Fredoka", fontSize: 18, color: C.ink })
                 )
@@ -692,7 +692,7 @@ async function leaderboard(d) {
             h(
               "div",
               { width: 44, height: 44, borderRadius: 44, border: `3px solid ${C.ink}`, backgroundColor: C.pink, marginRight: 14, overflow: "hidden" },
-              avatars[i] ? h("img", { src: avatars[i], width: 38, height: 38, borderRadius: 38 }) : null
+              avatars[i] ? h("img", { objectFit: "cover", src: avatars[i], width: 38, height: 38, borderRadius: 38 }) : null
             ),
             txt(clip(latin(r.name, r.username), 24), { fontFamily: "Fredoka", fontSize: 26, flexGrow: 1, color: C.ink }),
             sticker(`LVL ${r.level}`, C.pink, 0, { fontSize: 14, marginRight: 18 }),
@@ -821,7 +821,7 @@ async function banner(d) {
                 h(
                   "div",
                   { position: "absolute", left: 0, top: 0, width: 150, height: 150, borderRadius: 22, backgroundColor: C.white, border: `5px solid ${C.ink}`, padding: 8 },
-                  h("img", { src: icon, width: 124, height: 124, borderRadius: 14 })
+                  h("img", { objectFit: "cover", src: icon, width: 124, height: 124, borderRadius: 14 })
                 )
               ),
               d.iconLabel ? txt(latin(d.iconLabel, ""), { fontFamily: "Fredoka", fontSize: 20, color: C.ink, marginTop: 22 }) : null
@@ -895,7 +895,7 @@ async function person(d) {
             h(
               "div",
               { position: "absolute", left: 0, top: 0, width: 150, height: 150, borderRadius: 22, backgroundColor: C.white, border: `5px solid ${C.ink}`, padding: 8 },
-              icon ? h("img", { src: icon, width: 124, height: 124, borderRadius: 14 }) : h("div", { width: 124, height: 124, borderRadius: 14, backgroundColor: C.pink })
+              icon ? h("img", { objectFit: "cover", src: icon, width: 124, height: 124, borderRadius: 14 }) : h("div", { width: 124, height: 124, borderRadius: 14, backgroundColor: C.pink })
             )
           ),
           txt(badgeLabel, { fontFamily: "Fredoka", fontSize: badgeLabel.length > 14 ? 18 : badgeLabel.length > 11 ? 21 : 24, color: C.ink, marginTop: 24, textAlign: "center", width: 190 }),
@@ -1023,7 +1023,7 @@ function petTile(uri, size, name, color) {
         justifyContent: "center",
       },
       uri
-        ? h("img", { src: uri, width: inner, height: inner, borderRadius: Math.round(inner * 0.12) })
+        ? h("img", { objectFit: "cover", src: uri, width: inner, height: inner, borderRadius: Math.round(inner * 0.12) })
         : cubeFace((size - inner * 0.7) / 2 - 5, (size - inner * 0.7) / 2 - 5, Math.round(inner * 0.7), color || C.pink, -6)
     )
   );
