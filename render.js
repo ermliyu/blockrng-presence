@@ -898,7 +898,7 @@ async function person(d) {
               icon ? h("img", { objectFit: "cover", src: icon, width: 124, height: 124, borderRadius: 14 }) : h("div", { width: 124, height: 124, borderRadius: 14, backgroundColor: C.pink })
             )
           ),
-          txt(badgeLabel, { fontFamily: "Fredoka", fontSize: badgeLabel.length > 14 ? 18 : badgeLabel.length > 11 ? 21 : 24, color: C.ink, marginTop: 24, textAlign: "center", width: 190 }),
+          h("div", { width: 190, justifyContent: "center", marginTop: 24 }, txt(badgeLabel, { fontFamily: "Fredoka", fontSize: badgeLabel.length > 14 ? 18 : badgeLabel.length > 11 ? 21 : 24, color: C.ink })),
           txt(latin(d.footer || "credits", ""), { fontSize: 18, fontWeight: 800, color: C.inkSoft, marginTop: 2 })
         )
       ),
